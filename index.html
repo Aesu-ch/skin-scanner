@@ -402,8 +402,11 @@ Rules: heroIngredients exactly 5 (or fewer if fewer actives). skinConcerns exact
           { type: 'text', text: buildPrompt('') }
         ]}],
       });
-      if (!res.ok) throw new Error(res.status);
-      parseAndRender(await res.json());
+      const rawText = await res.text();
+      console.log('STATUS:', res.status);
+      console.log('RAW RESPONSE:', rawText.slice(0, 500));
+      if (!res.ok) { showScreen('screen-scan'); setError(`Worker error ${res.status}: ${rawText.slice(0,100)}`); return; }
+      parseAndRender(JSON.parse(rawText));
     } catch (e) {
       console.error('analyseImage error:', e);
       showScreen('screen-scan');
@@ -419,12 +422,15 @@ Rules: heroIngredients exactly 5 (or fewer if fewer actives). skinConcerns exact
         system: 'You are a world-class Korean skincare expert. Return ONLY valid JSON — no markdown, no preamble.',
         messages: [{ role: 'user', content: buildPrompt(name) }],
       });
-      if (!res.ok) throw new Error(res.status);
-      parseAndRender(await res.json());
+      const rawText = await res.text();
+      console.log('STATUS:', res.status);
+      console.log('RAW RESPONSE:', rawText.slice(0, 500));
+      if (!res.ok) { showScreen('screen-scan'); setError(`Worker error ${res.status}: ${rawText.slice(0,100)}`); return; }
+      parseAndRender(JSON.parse(rawText));
     } catch (e) {
-      console.error(e);
+      console.error('analyseText error:', e);
       showScreen('screen-scan');
-      setError('Could not analyse product. Please try again.');
+      setError(`Error: ${e.message}`);
     }
   }
 
