@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Aesu — Skin Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    /* ─── TOKENS ─── */
+    :root {
+      --bg:        #0C0B09;
+      --surface:   #161410;
+      --surface2:  #1F1D19;
+      --surface3:  #2A2720;
+      --gold:      #C9A46A;
+      --gold-dim:  rgba(201,164,106,0.18);
+      --gold-line: rgba(201,164,106,0.25);
+      --rose:      #C49A94;
+      --sage:      #8A9E8C;
+      --text:      #F0EAE0;
+      --text-mid:  #A89F92;
+      --text-dim:  #5C574F;
+      --danger:    #C47A6A;
+      --danger-bg: rgba(196,122,106,0.12);
+      --radius:    14px;
+      --font-disp: 'Cormorant Garamond', Georgia, serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+
+    /* ─── RESET ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ─── SCREENS ─── */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity .35s ease;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen.active { opacity: 1; pointer-events: all; }
+
+    /* ─── SCAN SCREEN ─── */
+    #screen-scan {
+      background: var(--bg);
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .scan-header {
+      width: 100%; padding: 52px 28px 20px;
+      display: flex; align-items: baseline; gap: 10px;
+      flex-shrink: 0;
+    }
+    .scan-header .logo {
+      font-family: var(--font-disp);
+      font-size: 28px; font-weight: 300; letter-spacing: .12em;
+      color: var(--gold);
+    }
+    .scan-header .tagline {
+      font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--text-dim); font-weight: 300;
+    }
+
+    /* viewfinder */
+    .viewfinder-wrap {
+      position: relative;
+      width: min(340px, 90vw);
+      aspect-ratio: 1 / .65;
+      flex-shrink: 0;
+    }
+    #reader {
+      position: absolute; inset: 0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    /* hide html5-qrcode default UI chrome */
+    #reader > * { border: none !important; }
+    #reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
+    #reader img, #reader canvas { display: none !important; }
+    #reader__scan_region img { display: none !important; }
+
+    .vf-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      border-radius: 10px; overflow: hidden;
+    }
+    .vf-corner {
+      position: absolute; width: 22px; height: 22px;
+      border-color: var(--gold); border-style: solid;
+    }
+    .vf-corner.tl { top: 8px; left: 8px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
+    .vf-corner.tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; }
+    .vf-corner.bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
+    .vf-corner.br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
+    .scan-line {
+      position: absolute; left: 12px; right: 12px; height: 1.5px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      animation: scanMove 2.2s ease-in-out infinite;
+      top: 0;
+    }
+    @keyframes scanMove {
+      0%   { top: 12px; opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: calc(100% - 12px); opacity: 0; }
+    }
+
+    .scan-hint {
+      margin-top: 16px;
+      font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text-dim); font-weight: 300;
+    }
+
+    /* divider */
+    .or-divider {
+      display: flex; align-items: center; gap: 14px;
+      width: min(340px, 90vw); margin-top: 26px;
+      color: var(--text-dim); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    }
+    .or-divider::before, .or-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--gold-line);
+    }
+
+    /* manual entry */
+    .manual-wrap {
+      width: min(340px, 90vw); margin-top: 14px;
+      display: flex; gap: 8px;
+    }
+    .manual-input {
+      flex: 1; padding: 12px 16px;
+      background: var(--surface2); border: 1px solid var(--gold-line);
+      border-radius: var(--radius); color: var(--text);
+      font-family: var(--font-body); font-size: 14px;
+      outline: none; transition: border-color .2s;
+    }
+    .manual-input::placeholder { color: var(--text-dim); }
+    .manual-input:focus { border-color: var(--gold); }
+    .manual-btn {
+      padding: 12px 18px;
+      background: var(--gold); color: var(--bg);
+      border: none; border-radius: var(--radius);
+      font-family: var(--font-body); font-size: 18px; font-weight: 500;
+      cursor: pointer; transition: opacity .2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .manual-btn:active { opacity: .75; }
+
+    .scan-error {
+      margin-top: 14px;
+      font-size: 12px; color: var(--danger);
+      text-align: center;
+      min-height: 18px;
+    }
+
+    /* ─── LOADING SCREEN ─── */
+    #screen-loading {
+      align-items: center; justify-content: center;
+      gap: 24px; background: var(--bg);
+    }
+    .loading-logo {
+      font-family: var(--font-disp); font-size: 32px; font-weight: 300;
+      letter-spacing: .16em; color: var(--gold);
+    }
+    .loading-ring {
+      width: 52px; height: 52px;
+      border: 1.5px solid var(--gold-line);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-label {
+      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--text-dim); font-weight: 300;
+    }
+    .loading-dots::after {
+      content: '';
+      animation: dots 1.4s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+    }
+
+    /* ─── RESULT SCREEN ─── */
+    #screen-result {
+      background: var(--bg);
+      padding: 0;
+      overflow-y: auto;
+    }
+
+    .result-topbar {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--bg);
+      padding: 52px 24px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--gold-line);
+      backdrop-filter: blur(10px);
+    }
+    .back-btn {
+      background: none; border: none;
+      color: var(--gold); font-family: var(--font-body);
+      font-size: 13px; letter-spacing: .1em; cursor: pointer;
+      padding: 6px 0; text-transform: uppercase;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .back-btn:active { opacity: .6; }
+    .topbar-logo {
+      font-family: var(--font-disp); font-size: 20px; font-weight: 300;
+      letter-spacing: .14em; color: var(--gold); opacity: .7;
+    }
+
+    .result-body { padding: 0 20px 60px; }
+
+    /* product hero */
+    .product-hero {
+      padding: 28px 0 24px;
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .product-type-tag {
+      display: inline-block;
+      font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--gold); background: var(--gold-dim);
+      padding: 4px 10px; border-radius: 20px;
+      margin-bottom: 10px;
+    }
+    .product-brand {
+      font-family: var(--font-disp); font-size: 15px; font-weight: 400;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text-mid); margin-bottom: 4px;
+    }
+    .product-name {
+      font-family: var(--font-disp); font-size: 28px; font-weight: 300;
+      line-height: 1.25; color: var(--text);
+    }
+
+    /* sections */
+    .section {
+      margin-top: 28px;
+    }
+    .section-label {
+      font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+      color: var(--text-dim); font-weight: 400;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--gold-line);
+    }
+
+    /* hero ingredients */
+    .ingredients-list { display: flex; flex-direction: column; gap: 10px; }
+    .ingredient-card {
+      background: var(--surface2);
+      border: 1px solid var(--gold-line);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+    }
+    .ingredient-name {
+      font-family: var(--font-disp); font-size: 17px; font-weight: 400;
+      color: var(--text); grid-column: 1;
+    }
+    .ingredient-conc {
+      font-size: 12px; color: var(--gold);
+      font-weight: 500; letter-spacing: .06em;
+      grid-column: 2; grid-row: 1;
+      align-self: center; text-align: right;
+      white-space: nowrap;
+    }
+    .ingredient-benefit {
+      font-size: 13px; color: var(--text-mid);
+      grid-column: 1 / -1; font-weight: 300; line-height: 1.5;
+    }
+
+    /* warning */
+    .warning-card {
+      background: var(--danger-bg);
+      border: 1px solid rgba(196,122,106,0.3);
+      border-radius: var(--radius); padding: 16px;
+    }
+    .warning-icon { color: var(--danger); font-size: 16px; margin-right: 6px; }
+    .warning-text { font-size: 13.5px; color: var(--text-mid); font-weight: 300; line-height: 1.65; }
+    .warning-text strong { color: var(--danger); font-weight: 500; }
+
+    /* purpose */
+    .purpose-text {
+      font-family: var(--font-disp); font-size: 18px; font-weight: 300;
+      font-style: italic; line-height: 1.6; color: var(--text-mid);
+    }
+
+    /* tags */
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag {
+      font-size: 12px; letter-spacing: .06em;
+      padding: 6px 14px; border-radius: 20px;
+      font-weight: 400;
+    }
+    .tag-skin {
+      background: rgba(138,158,140,0.15);
+      border: 1px solid rgba(138,158,140,0.35);
+      color: var(--sage);
+    }
+    .tag-concern {
+      background: rgba(196,154,148,0.12);
+      border: 1px solid rgba(196,154,148,0.3);
+      color: var(--rose);
+    }
+    .tag-concern:first-child {
+      background: rgba(201,164,106,0.15);
+      border-color: rgba(201,164,106,0.35);
+      color: var(--gold);
+    }
+
+    /* routine / benefit text */
+    .prose {
+      font-size: 14px; font-weight: 300; line-height: 1.75;
+      color: var(--text-mid);
+    }
+
+    /* pairing lists */
+    .pairing-list { display: flex; flex-direction: column; gap: 6px; }
+    .pairing-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13.5px; color: var(--text-mid); font-weight: 300; line-height: 1.55;
+    }
+    .pairing-item .bullet {
+      flex-shrink: 0; margin-top: 5px;
+      width: 6px; height: 6px; border-radius: 50%;
+    }
+    .bullet-good  { background: var(--sage); }
+    .bullet-avoid { background: var(--danger); }
+
+    /* ─── UTIL ─── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ SCREEN: SCAN ═══ -->
+<div id="screen-scan" class="screen active">
+  <div class="scan-header">
+    <span class="logo">aesu</span>
+    <span class="tagline">skin intelligence</span>
+  </div>
+
+  <div class="viewfinder-wrap">
+    <div id="reader"></div>
+    <div class="vf-overlay">
+      <div class="vf-corner tl"></div>
+      <div class="vf-corner tr"></div>
+      <div class="vf-corner bl"></div>
+      <div class="vf-corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+  </div>
+
+  <p class="scan-hint">Position barcode within frame</p>
+
+  <div class="or-divider">or</div>
+
+  <div class="manual-wrap">
+    <input id="manual-input" class="manual-input" type="text"
+      placeholder="Type product name…"
+      autocomplete="off" autocorrect="off" spellcheck="false" />
+    <button class="manual-btn" id="manual-btn">→</button>
+  </div>
+
+  <p class="scan-error" id="scan-error"></p>
+</div>
+
+
+<!-- ═══ SCREEN: LOADING ═══ -->
+<div id="screen-loading" class="screen">
+  <span class="loading-logo">aesu</span>
+  <div class="loading-ring"></div>
+  <span class="loading-label">Analysing ingredients<span class="loading-dots"></span></span>
+</div>
+
+
+<!-- ═══ SCREEN: RESULT ═══ -->
+<div id="screen-result" class="screen">
+  <div class="result-topbar">
+    <button class="back-btn" id="back-btn">← Scan another</button>
+    <span class="topbar-logo">aesu</span>
+  </div>
+
+  <div class="result-body">
+    <!-- Product hero -->
+    <div class="product-hero">
+      <div class="product-type-tag" id="r-type"></div>
+      <div class="product-brand" id="r-brand"></div>
+      <div class="product-name" id="r-name"></div>
+    </div>
+
+    <!-- Hero Ingredients -->
+    <div class="section">
+      <div class="section-label">Hero Ingredients</div>
+      <div class="ingredients-list" id="r-ingredients"></div>
+    </div>
+
+    <!-- Warning -->
+    <div class="section">
+      <div class="section-label">Warning</div>
+      <div class="warning-card">
+        <p class="warning-text" id="r-warning"></p>
+      </div>
+    </div>
+
+    <!-- Purpose -->
+    <div class="section">
+      <div class="section-label">Product Purpose</div>
+      <p class="purpose-text" id="r-purpose"></p>
+    </div>
+
+    <!-- Skin Types -->
+    <div class="section">
+      <div class="section-label">Suitable Skin Types</div>
+      <div class="tags" id="r-skin-types"></div>
+    </div>
+
+    <!-- Concerns -->
+    <div class="section">
+      <div class="section-label">Top Skin Concerns</div>
+      <div class="tags" id="r-concerns"></div>
+    </div>
+
+    <!-- Routine -->
+    <div class="section">
+      <div class="section-label">Routine Integration</div>
+      <p class="prose" id="r-routine"></p>
+    </div>
+
+    <!-- Good Pairings -->
+    <div class="section">
+      <div class="section-label">Good Pairings</div>
+      <div class="pairing-list" id="r-good-pairings"></div>
+    </div>
+
+    <!-- Avoid Pairings -->
+    <div class="section">
+      <div class="section-label">Avoid Pairing With</div>
+      <div class="pairing-list" id="r-avoid-pairings"></div>
+    </div>
+
+    <!-- Max Benefit -->
+    <div class="section">
+      <div class="section-label">How to Get the Most Out of It</div>
+      <p class="prose" id="r-benefit"></p>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  // ─── CONFIG ───────────────────────────────────────────────────────────────
+  // 🔧 Replace with your Cloudflare Worker URL if needed
+  const WORKER_URL = 'https://korean-skincare-app.naomi-c-lovera.workers.dev';
+
+  // ─── STATE ────────────────────────────────────────────────────────────────
+  let scanner = null;
+  let scanning = false;
+
+  // ─── SCREEN MANAGEMENT ───────────────────────────────────────────────────
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ─── SCANNER INIT ─────────────────────────────────────────────────────────
+  function initScanner() {
+    if (scanner || scanning) return;
+    scanning = true;
+
+    scanner = new Html5Qrcode('reader');
+
+    const formats = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+    ];
+
+    scanner.start(
+      { facingMode: 'environment' },
+      {
+        fps: 10,
+        qrbox: { width: 280, height: 120 },
+        formatsToSupport: formats,
+        disableFlip: false,
+      },
+      (decodedText) => {
+        // Barcode detected
+        stopScanner();
+        handleBarcode(decodedText);
+      },
+      () => { /* silent fail on each frame */ }
+    ).catch(err => {
+      setError('Camera unavailable — please type the product name below.');
+      scanning = false;
+    });
+  }
+
+  function stopScanner() {
+    if (scanner) {
+      scanner.stop().catch(() => {});
+      scanner = null;
+    }
+    scanning = false;
+  }
+
+  // ─── BARCODE FLOW ─────────────────────────────────────────────────────────
+  async function handleBarcode(barcode) {
+    clearError();
+    showScreen('screen-loading');
+
+    // Try to resolve product name from barcode via Open Food Facts (free, no key)
+    let productHint = '';
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const data = await res.json();
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        productHint = [p.brands, p.product_name].filter(Boolean).join(' ');
+      }
+    } catch (_) {}
+
+    // Pass barcode + optional hint to Claude
+    const query = productHint
+      ? `${productHint} (barcode: ${barcode})`
+      : `barcode: ${barcode}`;
+
+    await analyseProduct(query);
+  }
+
+  // ─── MANUAL ENTRY ─────────────────────────────────────────────────────────
+  async function handleManual() {
+    const val = document.getElementById('manual-input').value.trim();
+    if (!val) {
+      setError('Please enter a product name.');
+      return;
+    }
+    clearError();
+    stopScanner();
+    showScreen('screen-loading');
+    await analyseProduct(val);
+  }
+
+  // ─── CLAUDE API CALL ──────────────────────────────────────────────────────
+  async function analyseProduct(query) {
+    const SKIN_TYPES    = ['all skin types','oily','dry','combination','normal'];
+    const SKIN_CONCERNS = ['acne','anti-aging','anti-bacterial','barrier repair','blackheads',
+                           'brightening','dark spot','deep cleansing','dehydration',
+                           'dullness','hyperpigmentation','soothing','visible pores'];
+
+    const systemPrompt = `You are a world-class Korean skincare ingredient expert. 
+When given a product name or barcode, you identify the product and return a JSON analysis. 
+You always return ONLY valid JSON — no markdown fences, no preamble, no commentary. Nothing else.`;
+
+    const userPrompt = `Identify this skincare product and return a detailed analysis:
+
+Product: ${query}
+
+Return ONLY a single JSON object with this exact structure:
+{
+  "found": true or false,
+  "brand": "brand name",
+  "productName": "product name",
+  "productType": "e.g. Serum, Toner, Moisturiser, Essence, Cleanser, Sunscreen, Eye Cream, Mask, Exfoliant",
+  "heroIngredients": [
+    {
+      "name": "ingredient name",
+      "concentration": "e.g. 0.1% or 'not disclosed'",
+      "benefit": "concise 1-sentence benefit"
+    }
+  ],
+  "warning": "Describe any sensitive skin risks (irritation, purging, photosensitivity, etc). Also include a pregnancy/breastfeeding note if relevant, with this exact disclaimer appended: 'We are not medical professionals — please consult your doctor or pharmacist before use.'",
+  "productPurpose": "1–2 sentences describing what this product does",
+  "suitableSkinTypes": ["choose one or more from exactly: all skin types, oily, dry, combination, normal"],
+  "skinConcerns": ["choose EXACTLY 3 from: acne, anti-aging, anti-bacterial, barrier repair, blackheads, brightening, dark spot, deep cleansing, dehydration, dullness, hyperpigmentation, soothing, visible pores — ordered by relevance to hero ingredient concentrations, highest concentration first"],
+  "routineIntegration": "Step-by-step guidance: when in routine (AM/PM), what comes before and after, frequency",
+  "goodPairings": ["ingredient or product type — 3 to 5 items, each a short phrase"],
+  "avoidPairings": ["ingredient or product type — 3 to 5 items, each a short phrase"],
+  "maxBenefit": "3–5 practical tips to get the most benefit from this product"
+}
+
+Skin type values must be from the list: ${SKIN_TYPES.join(', ')}.
+Skin concern values must be from the list: ${SKIN_CONCERNS.join(', ')}.
+Hero ingredients: include exactly 5, or fewer if the product genuinely has fewer notable actives.
+If the product cannot be identified, set "found": false and populate all other fields with "Unknown" or empty arrays.`;
+
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Worker returned ${response.status}`);
+
+      const data = await response.json();
+      const raw = data.content[0].text;
+      // Strip any accidental markdown fences
+      const clean = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/,'').trim();
+      const product = JSON.parse(clean);
+      renderResult(product);
+    } catch (err) {
+      console.error(err);
+      showScreen('screen-scan');
+      setError('Could not analyse product. Please try again.');
+      initScanner();
+    }
+  }
+
+  // ─── RENDER RESULT ────────────────────────────────────────────────────────
+  function renderResult(p) {
+    // Header
+    document.getElementById('r-type').textContent    = p.productType || 'Product';
+    document.getElementById('r-brand').textContent   = (p.brand || '').toUpperCase();
+    document.getElementById('r-name').textContent    = p.productName || 'Unknown Product';
+    document.getElementById('r-purpose').textContent = p.productPurpose || '—';
+    document.getElementById('r-routine').textContent = p.routineIntegration || '—';
+    document.getElementById('r-benefit').textContent = p.maxBenefit || '—';
+
+    // Warning
+    const warnEl = document.getElementById('r-warning');
+    warnEl.innerHTML = (p.warning || '—')
+      .replace(/We are not medical professionals[^.]*/,
+        '<strong>⚠ We are not medical professionals — please consult your doctor or pharmacist before use.</strong>');
+
+    // Hero Ingredients
+    const ingList = document.getElementById('r-ingredients');
+    ingList.innerHTML = '';
+    (p.heroIngredients || []).forEach(ing => {
+      const card = document.createElement('div');
+      card.className = 'ingredient-card';
+      card.innerHTML = `
+        <span class="ingredient-name">${ing.name}</span>
+        <span class="ingredient-conc">${ing.concentration || ''}</span>
+        <span class="ingredient-benefit">${ing.benefit || ''}</span>`;
+      ingList.appendChild(card);
+    });
+
+    // Skin types
+    const stEl = document.getElementById('r-skin-types');
+    stEl.innerHTML = '';
+    (p.suitableSkinTypes || []).forEach(t => {
+      const tag = document.createElement('span');
+      tag.className = 'tag tag-skin';
+      tag.textContent = capitalize(t);
+      stEl.appendChild(tag);
+    });
+
+    // Concerns
+    const scEl = document.getElementById('r-concerns');
+    scEl.innerHTML = '';
+    (p.skinConcerns || []).slice(0, 3).forEach(c => {
+      const tag = document.createElement('span');
+      tag.className = 'tag tag-concern';
+      tag.textContent = capitalize(c);
+      scEl.appendChild(tag);
+    });
+
+    // Good pairings
+    const gpEl = document.getElementById('r-good-pairings');
+    gpEl.innerHTML = '';
+    (p.goodPairings || []).forEach(item => {
+      const d = document.createElement('div');
+      d.className = 'pairing-item';
+      d.innerHTML = `<span class="bullet bullet-good"></span><span>${item}</span>`;
+      gpEl.appendChild(d);
+    });
+
+    // Avoid pairings
+    const apEl = document.getElementById('r-avoid-pairings');
+    apEl.innerHTML = '';
+    (p.avoidPairings || []).forEach(item => {
+      const d = document.createElement('div');
+      d.className = 'pairing-item';
+      d.innerHTML = `<span class="bullet bullet-avoid"></span><span>${item}</span>`;
+      apEl.appendChild(d);
+    });
+
+    // Scroll result to top
+    document.getElementById('screen-result').scrollTop = 0;
+    showScreen('screen-result');
+  }
+
+  // ─── HELPERS ──────────────────────────────────────────────────────────────
+  function setError(msg) {
+    document.getElementById('scan-error').textContent = msg;
+  }
+  function clearError() {
+    document.getElementById('scan-error').textContent = '';
+  }
+  function capitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+  }
+
+  // ─── EVENTS ───────────────────────────────────────────────────────────────
+  document.getElementById('manual-btn').addEventListener('click', handleManual);
+  document.getElementById('manual-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleManual();
+  });
+
+  document.getElementById('back-btn').addEventListener('click', () => {
+    showScreen('screen-scan');
+    document.getElementById('manual-input').value = '';
+    clearError();
+    initScanner();
+  });
+
+  // ─── BOOT ─────────────────────────────────────────────────────────────────
+  if (typeof Html5Qrcode === 'undefined') {
+    setError('Camera library failed to load. Please use manual entry below.');
+  } else {
+    initScanner();
+  }
+</script>
+</body>
+</html>
