@@ -7,15 +7,11 @@
   <title>Aesu — Skin Scanner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
-    /* ─── TOKENS ─── */
     :root {
       --bg:        #0C0B09;
-      --surface:   #161410;
       --surface2:  #1F1D19;
-      --surface3:  #2A2720;
       --gold:      #C9A46A;
       --gold-dim:  rgba(201,164,106,0.18);
       --gold-line: rgba(201,164,106,0.25);
@@ -30,357 +26,212 @@
       --font-disp: 'Cormorant Garamond', Georgia, serif;
       --font-body: 'DM Sans', sans-serif;
     }
-
-    /* ─── RESET ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-body);
-      font-size: 15px;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-      overflow: hidden;
+      height: 100%; background: var(--bg); color: var(--text);
+      font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+      -webkit-font-smoothing: antialiased; overflow: hidden;
     }
 
-    /* ─── SCREENS ─── */
+    /* ── SCREENS ── */
     .screen {
-      position: fixed; inset: 0;
-      display: flex; flex-direction: column;
-      opacity: 0; pointer-events: none;
-      transition: opacity .35s ease;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none; transition: opacity .35s ease;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
     }
     .screen.active { opacity: 1; pointer-events: all; }
 
-    /* ─── SCAN SCREEN ─── */
-    #screen-scan {
-      background: var(--bg);
-      align-items: center;
-      justify-content: flex-start;
-    }
+    /* ── SCAN SCREEN ── */
+    #screen-scan { align-items: center; padding-bottom: 40px; }
+
     .scan-header {
-      width: 100%; padding: 52px 28px 20px;
-      display: flex; align-items: baseline; gap: 10px;
-      flex-shrink: 0;
+      width: 100%; padding: 52px 28px 28px;
+      display: flex; align-items: baseline; gap: 10px; flex-shrink: 0;
     }
-    .scan-header .logo {
-      font-family: var(--font-disp);
-      font-size: 28px; font-weight: 300; letter-spacing: .12em;
-      color: var(--gold);
-    }
-    .scan-header .tagline {
-      font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
-      color: var(--text-dim); font-weight: 300;
-    }
+    .logo { font-family: var(--font-disp); font-size: 28px; font-weight: 300; letter-spacing: .12em; color: var(--gold); }
+    .tagline { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-dim); font-weight: 300; }
 
-    /* viewfinder */
-    .viewfinder-wrap {
-      position: relative;
-      width: min(340px, 90vw);
-      aspect-ratio: 1 / .65;
-      flex-shrink: 0;
-    }
-    #reader {
-      position: absolute; inset: 0;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    /* hide html5-qrcode default UI chrome */
-    #reader > * { border: none !important; }
-    #reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
-    #reader img, #reader canvas { display: none !important; }
-    #reader__scan_region img { display: none !important; }
+    .capture-zone { width: min(320px, 88vw); display: flex; flex-direction: column; align-items: center; }
 
-    .vf-overlay {
-      position: absolute; inset: 0; pointer-events: none;
-      border-radius: 10px; overflow: hidden;
+    .photo-frame {
+      width: 100%; aspect-ratio: 3/4;
+      border-radius: var(--radius); border: 1px solid var(--gold-line);
+      background: var(--surface2);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; cursor: pointer; position: relative; overflow: hidden;
+      transition: border-color .2s;
     }
-    .vf-corner {
-      position: absolute; width: 22px; height: 22px;
-      border-color: var(--gold); border-style: solid;
-    }
-    .vf-corner.tl { top: 8px; left: 8px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
-    .vf-corner.tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; }
-    .vf-corner.bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
-    .vf-corner.br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
-    .scan-line {
-      position: absolute; left: 12px; right: 12px; height: 1.5px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      animation: scanMove 2.2s ease-in-out infinite;
-      top: 0;
-    }
-    @keyframes scanMove {
-      0%   { top: 12px; opacity: 0; }
-      10%  { opacity: 1; }
-      90%  { opacity: 1; }
-      100% { top: calc(100% - 12px); opacity: 0; }
-    }
+    .photo-frame:active { border-color: var(--gold); }
 
-    .scan-hint {
-      margin-top: 16px;
-      font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
-      color: var(--text-dim); font-weight: 300;
+    #preview {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; border-radius: var(--radius); display: none;
     }
+    #preview.visible { display: block; }
 
-    /* divider */
+    .frame-placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; transition: opacity .2s; }
+    .frame-placeholder.hidden { opacity: 0; pointer-events: none; }
+
+    .camera-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--gold-dim); border: 1px solid var(--gold-line);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .camera-icon svg { width: 26px; height: 26px; fill: none; stroke: var(--gold); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .frame-hint { font-size: 13px; color: var(--text-dim); font-weight: 300; text-align: center; line-height: 1.5; max-width: 180px; }
+
+    .retake-overlay {
+      position: absolute; inset: 0; background: rgba(12,11,9,.55);
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius); opacity: 0; transition: opacity .2s;
+    }
+    .photo-frame:hover .retake-overlay, .photo-frame:active .retake-overlay { opacity: 1; }
+    .retake-label { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--text); }
+
+    #photo-input { display: none; }
+
+    .analyse-btn {
+      margin-top: 14px; width: 100%; padding: 15px;
+      background: var(--gold); color: var(--bg); border: none;
+      border-radius: var(--radius); font-family: var(--font-body);
+      font-size: 14px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase;
+      cursor: pointer; transition: opacity .2s; display: none;
+    }
+    .analyse-btn.visible { display: block; }
+    .analyse-btn:active { opacity: .75; }
+
     .or-divider {
       display: flex; align-items: center; gap: 14px;
-      width: min(340px, 90vw); margin-top: 26px;
+      width: min(320px, 88vw); margin-top: 24px;
       color: var(--text-dim); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
     }
-    .or-divider::before, .or-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--gold-line);
-    }
+    .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--gold-line); }
 
-    /* manual entry */
-    .manual-wrap {
-      width: min(340px, 90vw); margin-top: 14px;
-      display: flex; gap: 8px;
-    }
+    .manual-wrap { width: min(320px, 88vw); margin-top: 14px; display: flex; gap: 8px; }
     .manual-input {
-      flex: 1; padding: 12px 16px;
-      background: var(--surface2); border: 1px solid var(--gold-line);
-      border-radius: var(--radius); color: var(--text);
-      font-family: var(--font-body); font-size: 14px;
-      outline: none; transition: border-color .2s;
+      flex: 1; padding: 12px 16px; background: var(--surface2);
+      border: 1px solid var(--gold-line); border-radius: var(--radius);
+      color: var(--text); font-family: var(--font-body); font-size: 14px; outline: none; transition: border-color .2s;
     }
     .manual-input::placeholder { color: var(--text-dim); }
     .manual-input:focus { border-color: var(--gold); }
     .manual-btn {
-      padding: 12px 18px;
-      background: var(--gold); color: var(--bg);
+      padding: 12px 18px; background: var(--gold); color: var(--bg);
       border: none; border-radius: var(--radius);
-      font-family: var(--font-body); font-size: 18px; font-weight: 500;
-      cursor: pointer; transition: opacity .2s;
-      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-body); font-size: 18px; font-weight: 500; cursor: pointer;
     }
     .manual-btn:active { opacity: .75; }
 
-    .scan-error {
-      margin-top: 14px;
-      font-size: 12px; color: var(--danger);
-      text-align: center;
-      min-height: 18px;
-    }
+    .scan-error { margin-top: 14px; font-size: 12px; color: var(--danger); text-align: center; min-height: 18px; width: min(320px, 88vw); }
 
-    /* ─── LOADING SCREEN ─── */
-    #screen-loading {
-      align-items: center; justify-content: center;
-      gap: 24px; background: var(--bg);
-    }
-    .loading-logo {
-      font-family: var(--font-disp); font-size: 32px; font-weight: 300;
-      letter-spacing: .16em; color: var(--gold);
-    }
+    /* ── LOADING ── */
+    #screen-loading { align-items: center; justify-content: center; gap: 24px; }
+    .loading-logo { font-family: var(--font-disp); font-size: 32px; font-weight: 300; letter-spacing: .16em; color: var(--gold); }
     .loading-ring {
-      width: 52px; height: 52px;
-      border: 1.5px solid var(--gold-line);
-      border-top-color: var(--gold);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+      width: 52px; height: 52px; border: 1.5px solid var(--gold-line);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-label {
-      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--text-dim); font-weight: 300;
-    }
-    .loading-dots::after {
-      content: '';
-      animation: dots 1.4s steps(4, end) infinite;
-    }
-    @keyframes dots {
-      0%   { content: ''; }
-      25%  { content: '.'; }
-      50%  { content: '..'; }
-      75%  { content: '...'; }
-    }
+    .loading-label { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); font-weight: 300; }
+    .loading-dots::after { content: ''; animation: dots 1.4s steps(4,end) infinite; }
+    @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
 
-    /* ─── RESULT SCREEN ─── */
-    #screen-result {
-      background: var(--bg);
-      padding: 0;
-      overflow-y: auto;
-    }
+    /* ── RESULT ── */
+    #screen-result { padding: 0; overflow-y: auto; }
 
     .result-topbar {
-      position: sticky; top: 0; z-index: 10;
-      background: var(--bg);
-      padding: 52px 24px 12px;
-      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; background: var(--bg);
+      padding: 52px 24px 12px; display: flex; align-items: center; justify-content: space-between;
       border-bottom: 1px solid var(--gold-line);
-      backdrop-filter: blur(10px);
     }
     .back-btn {
-      background: none; border: none;
-      color: var(--gold); font-family: var(--font-body);
-      font-size: 13px; letter-spacing: .1em; cursor: pointer;
-      padding: 6px 0; text-transform: uppercase;
-      display: flex; align-items: center; gap: 6px;
+      background: none; border: none; color: var(--gold); font-family: var(--font-body);
+      font-size: 13px; letter-spacing: .1em; cursor: pointer; padding: 6px 0; text-transform: uppercase;
     }
     .back-btn:active { opacity: .6; }
-    .topbar-logo {
-      font-family: var(--font-disp); font-size: 20px; font-weight: 300;
-      letter-spacing: .14em; color: var(--gold); opacity: .7;
-    }
+    .topbar-logo { font-family: var(--font-disp); font-size: 20px; font-weight: 300; letter-spacing: .14em; color: var(--gold); opacity: .7; }
 
     .result-body { padding: 0 20px 60px; }
 
-    /* product hero */
-    .product-hero {
-      padding: 28px 0 24px;
-      border-bottom: 1px solid var(--gold-line);
-    }
+    .product-hero { padding: 28px 0 24px; border-bottom: 1px solid var(--gold-line); }
     .product-type-tag {
-      display: inline-block;
-      font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
-      color: var(--gold); background: var(--gold-dim);
-      padding: 4px 10px; border-radius: 20px;
-      margin-bottom: 10px;
+      display: inline-block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--gold); background: var(--gold-dim); padding: 4px 10px; border-radius: 20px; margin-bottom: 10px;
     }
-    .product-brand {
-      font-family: var(--font-disp); font-size: 15px; font-weight: 400;
-      letter-spacing: .12em; text-transform: uppercase;
-      color: var(--text-mid); margin-bottom: 4px;
-    }
-    .product-name {
-      font-family: var(--font-disp); font-size: 28px; font-weight: 300;
-      line-height: 1.25; color: var(--text);
-    }
+    .product-brand { font-family: var(--font-disp); font-size: 15px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; color: var(--text-mid); margin-bottom: 4px; }
+    .product-name { font-family: var(--font-disp); font-size: 28px; font-weight: 300; line-height: 1.25; color: var(--text); }
 
-    /* sections */
-    .section {
-      margin-top: 28px;
-    }
+    .section { margin-top: 28px; }
     .section-label {
-      font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
-      color: var(--text-dim); font-weight: 400;
-      margin-bottom: 14px;
-      display: flex; align-items: center; gap: 10px;
+      font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--text-dim);
+      font-weight: 400; margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
     }
-    .section-label::after {
-      content: ''; flex: 1; height: 1px; background: var(--gold-line);
-    }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--gold-line); }
 
-    /* hero ingredients */
     .ingredients-list { display: flex; flex-direction: column; gap: 10px; }
     .ingredient-card {
-      background: var(--surface2);
-      border: 1px solid var(--gold-line);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 4px 12px;
+      background: var(--surface2); border: 1px solid var(--gold-line);
+      border-radius: var(--radius); padding: 14px 16px;
+      display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
     }
-    .ingredient-name {
-      font-family: var(--font-disp); font-size: 17px; font-weight: 400;
-      color: var(--text); grid-column: 1;
-    }
-    .ingredient-conc {
-      font-size: 12px; color: var(--gold);
-      font-weight: 500; letter-spacing: .06em;
-      grid-column: 2; grid-row: 1;
-      align-self: center; text-align: right;
-      white-space: nowrap;
-    }
-    .ingredient-benefit {
-      font-size: 13px; color: var(--text-mid);
-      grid-column: 1 / -1; font-weight: 300; line-height: 1.5;
-    }
+    .ingredient-name { font-family: var(--font-disp); font-size: 17px; font-weight: 400; color: var(--text); }
+    .ingredient-conc { font-size: 12px; color: var(--gold); font-weight: 500; letter-spacing: .06em; grid-column: 2; grid-row: 1; align-self: center; white-space: nowrap; }
+    .ingredient-benefit { font-size: 13px; color: var(--text-mid); grid-column: 1/-1; font-weight: 300; line-height: 1.5; }
 
-    /* warning */
-    .warning-card {
-      background: var(--danger-bg);
-      border: 1px solid rgba(196,122,106,0.3);
-      border-radius: var(--radius); padding: 16px;
-    }
-    .warning-icon { color: var(--danger); font-size: 16px; margin-right: 6px; }
+    .warning-card { background: var(--danger-bg); border: 1px solid rgba(196,122,106,.3); border-radius: var(--radius); padding: 16px; }
     .warning-text { font-size: 13.5px; color: var(--text-mid); font-weight: 300; line-height: 1.65; }
     .warning-text strong { color: var(--danger); font-weight: 500; }
 
-    /* purpose */
-    .purpose-text {
-      font-family: var(--font-disp); font-size: 18px; font-weight: 300;
-      font-style: italic; line-height: 1.6; color: var(--text-mid);
-    }
+    .purpose-text { font-family: var(--font-disp); font-size: 18px; font-weight: 300; font-style: italic; line-height: 1.6; color: var(--text-mid); }
 
-    /* tags */
     .tags { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tag {
-      font-size: 12px; letter-spacing: .06em;
-      padding: 6px 14px; border-radius: 20px;
-      font-weight: 400;
-    }
-    .tag-skin {
-      background: rgba(138,158,140,0.15);
-      border: 1px solid rgba(138,158,140,0.35);
-      color: var(--sage);
-    }
-    .tag-concern {
-      background: rgba(196,154,148,0.12);
-      border: 1px solid rgba(196,154,148,0.3);
-      color: var(--rose);
-    }
-    .tag-concern:first-child {
-      background: rgba(201,164,106,0.15);
-      border-color: rgba(201,164,106,0.35);
-      color: var(--gold);
-    }
+    .tag { font-size: 12px; letter-spacing: .06em; padding: 6px 14px; border-radius: 20px; font-weight: 400; }
+    .tag-skin { background: rgba(138,158,140,.15); border: 1px solid rgba(138,158,140,.35); color: var(--sage); }
+    .tag-concern { background: rgba(196,154,148,.12); border: 1px solid rgba(196,154,148,.3); color: var(--rose); }
+    .tag-concern:first-child { background: rgba(201,164,106,.15); border-color: rgba(201,164,106,.35); color: var(--gold); }
 
-    /* routine / benefit text */
-    .prose {
-      font-size: 14px; font-weight: 300; line-height: 1.75;
-      color: var(--text-mid);
-    }
+    .prose { font-size: 14px; font-weight: 300; line-height: 1.75; color: var(--text-mid); }
 
-    /* pairing lists */
     .pairing-list { display: flex; flex-direction: column; gap: 6px; }
-    .pairing-item {
-      display: flex; align-items: flex-start; gap: 10px;
-      font-size: 13.5px; color: var(--text-mid); font-weight: 300; line-height: 1.55;
-    }
-    .pairing-item .bullet {
-      flex-shrink: 0; margin-top: 5px;
-      width: 6px; height: 6px; border-radius: 50%;
-    }
+    .pairing-item { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: var(--text-mid); font-weight: 300; line-height: 1.55; }
+    .bullet { flex-shrink: 0; margin-top: 6px; width: 6px; height: 6px; border-radius: 50%; }
     .bullet-good  { background: var(--sage); }
     .bullet-avoid { background: var(--danger); }
-
-    /* ─── UTIL ─── */
-    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-<!-- ═══ SCREEN: SCAN ═══ -->
+<!-- ═══ SCAN ═══ -->
 <div id="screen-scan" class="screen active">
   <div class="scan-header">
     <span class="logo">aesu</span>
     <span class="tagline">skin intelligence</span>
   </div>
 
-  <div class="viewfinder-wrap">
-    <div id="reader"></div>
-    <div class="vf-overlay">
-      <div class="vf-corner tl"></div>
-      <div class="vf-corner tr"></div>
-      <div class="vf-corner bl"></div>
-      <div class="vf-corner br"></div>
-      <div class="scan-line"></div>
+  <div class="capture-zone">
+    <div class="photo-frame" id="photo-frame">
+      <img id="preview" alt="product" />
+      <div class="frame-placeholder" id="frame-placeholder">
+        <div class="camera-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </div>
+        <p class="frame-hint">Tap to photograph<br>your product</p>
+      </div>
+      <div class="retake-overlay"><span class="retake-label">Retake</span></div>
     </div>
-  </div>
 
-  <p class="scan-hint">Position barcode within frame</p>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" />
+    <button class="analyse-btn" id="analyse-btn">Analyse Product</button>
+  </div>
 
   <div class="or-divider">or</div>
 
   <div class="manual-wrap">
     <input id="manual-input" class="manual-input" type="text"
-      placeholder="Type product name…"
-      autocomplete="off" autocorrect="off" spellcheck="false" />
+      placeholder="Type product name…" autocomplete="off" autocorrect="off" spellcheck="false" />
     <button class="manual-btn" id="manual-btn">→</button>
   </div>
 
@@ -388,7 +239,7 @@
 </div>
 
 
-<!-- ═══ SCREEN: LOADING ═══ -->
+<!-- ═══ LOADING ═══ -->
 <div id="screen-loading" class="screen">
   <span class="loading-logo">aesu</span>
   <div class="loading-ring"></div>
@@ -396,351 +247,238 @@
 </div>
 
 
-<!-- ═══ SCREEN: RESULT ═══ -->
+<!-- ═══ RESULT ═══ -->
 <div id="screen-result" class="screen">
   <div class="result-topbar">
     <button class="back-btn" id="back-btn">← Scan another</button>
     <span class="topbar-logo">aesu</span>
   </div>
-
   <div class="result-body">
-    <!-- Product hero -->
     <div class="product-hero">
       <div class="product-type-tag" id="r-type"></div>
       <div class="product-brand" id="r-brand"></div>
       <div class="product-name" id="r-name"></div>
     </div>
-
-    <!-- Hero Ingredients -->
-    <div class="section">
-      <div class="section-label">Hero Ingredients</div>
-      <div class="ingredients-list" id="r-ingredients"></div>
-    </div>
-
-    <!-- Warning -->
-    <div class="section">
-      <div class="section-label">Warning</div>
-      <div class="warning-card">
-        <p class="warning-text" id="r-warning"></p>
-      </div>
-    </div>
-
-    <!-- Purpose -->
-    <div class="section">
-      <div class="section-label">Product Purpose</div>
-      <p class="purpose-text" id="r-purpose"></p>
-    </div>
-
-    <!-- Skin Types -->
-    <div class="section">
-      <div class="section-label">Suitable Skin Types</div>
-      <div class="tags" id="r-skin-types"></div>
-    </div>
-
-    <!-- Concerns -->
-    <div class="section">
-      <div class="section-label">Top Skin Concerns</div>
-      <div class="tags" id="r-concerns"></div>
-    </div>
-
-    <!-- Routine -->
-    <div class="section">
-      <div class="section-label">Routine Integration</div>
-      <p class="prose" id="r-routine"></p>
-    </div>
-
-    <!-- Good Pairings -->
-    <div class="section">
-      <div class="section-label">Good Pairings</div>
-      <div class="pairing-list" id="r-good-pairings"></div>
-    </div>
-
-    <!-- Avoid Pairings -->
-    <div class="section">
-      <div class="section-label">Avoid Pairing With</div>
-      <div class="pairing-list" id="r-avoid-pairings"></div>
-    </div>
-
-    <!-- Max Benefit -->
-    <div class="section">
-      <div class="section-label">How to Get the Most Out of It</div>
-      <p class="prose" id="r-benefit"></p>
-    </div>
+    <div class="section"><div class="section-label">Hero Ingredients</div><div class="ingredients-list" id="r-ingredients"></div></div>
+    <div class="section"><div class="section-label">Warning</div><div class="warning-card"><p class="warning-text" id="r-warning"></p></div></div>
+    <div class="section"><div class="section-label">Product Purpose</div><p class="purpose-text" id="r-purpose"></p></div>
+    <div class="section"><div class="section-label">Suitable Skin Types</div><div class="tags" id="r-skin-types"></div></div>
+    <div class="section"><div class="section-label">Top Skin Concerns</div><div class="tags" id="r-concerns"></div></div>
+    <div class="section"><div class="section-label">Routine Integration</div><p class="prose" id="r-routine"></p></div>
+    <div class="section"><div class="section-label">Good Pairings</div><div class="pairing-list" id="r-good-pairings"></div></div>
+    <div class="section"><div class="section-label">Avoid Pairing With</div><div class="pairing-list" id="r-avoid-pairings"></div></div>
+    <div class="section"><div class="section-label">How to Get the Most Out of It</div><p class="prose" id="r-benefit"></p></div>
   </div>
 </div>
 
 
 <script>
   // ─── CONFIG ───────────────────────────────────────────────────────────────
-  // 🔧 Replace with your Cloudflare Worker URL if needed
   const WORKER_URL = 'https://skin-scanner-proxy.naomi-c-lovera.workers.dev';
 
   // ─── STATE ────────────────────────────────────────────────────────────────
-  let scanner = null;
-  let scanning = false;
+  let capturedB64       = null;
+  let capturedMediaType = 'image/jpeg';
 
-  // ─── SCREEN MANAGEMENT ───────────────────────────────────────────────────
-  function showScreen(id) {
+  // ─── SCREENS ──────────────────────────────────────────────────────────────
+  const showScreen = id => {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-  }
+  };
 
-  // ─── SCANNER INIT ─────────────────────────────────────────────────────────
-  function initScanner() {
-    if (scanner || scanning) return;
-    scanning = true;
+  // ─── PHOTO CAPTURE ────────────────────────────────────────────────────────
+  const photoFrame  = document.getElementById('photo-frame');
+  const photoInput  = document.getElementById('photo-input');
+  const preview     = document.getElementById('preview');
+  const placeholder = document.getElementById('frame-placeholder');
+  const analyseBtn  = document.getElementById('analyse-btn');
 
-    scanner = new Html5Qrcode('reader');
+  photoFrame.addEventListener('click', () => photoInput.click());
 
-    const formats = [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.CODE_39,
-    ];
-
-    scanner.start(
-      { facingMode: 'environment' },
-      {
-        fps: 10,
-        qrbox: { width: 280, height: 120 },
-        formatsToSupport: formats,
-        disableFlip: false,
-      },
-      (decodedText) => {
-        // Barcode detected
-        stopScanner();
-        handleBarcode(decodedText);
-      },
-      () => { /* silent fail on each frame */ }
-    ).catch(err => {
-      setError('Camera unavailable — please type the product name below.');
-      scanning = false;
-    });
-  }
-
-  function stopScanner() {
-    if (scanner) {
-      scanner.stop().catch(() => {});
-      scanner = null;
-    }
-    scanning = false;
-  }
-
-  // ─── BARCODE FLOW ─────────────────────────────────────────────────────────
-  async function handleBarcode(barcode) {
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if (!file) return;
     clearError();
+    capturedMediaType = file.type || 'image/jpeg';
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.classList.add('visible');
+      placeholder.classList.add('hidden');
+      analyseBtn.classList.add('visible');
+      capturedB64 = e.target.result.split(',')[1];
+    };
+    reader.readAsDataURL(file);
+  });
+
+  analyseBtn.addEventListener('click', () => {
+    if (!capturedB64) return;
     showScreen('screen-loading');
-
-    // Try to resolve product name from barcode via Open Food Facts (free, no key)
-    let productHint = '';
-    try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-      const data = await res.json();
-      if (data.status === 1 && data.product) {
-        const p = data.product;
-        productHint = [p.brands, p.product_name].filter(Boolean).join(' ');
-      }
-    } catch (_) {}
-
-    // Pass barcode + optional hint to Claude
-    const query = productHint
-      ? `${productHint} (barcode: ${barcode})`
-      : `barcode: ${barcode}`;
-
-    await analyseProduct(query);
-  }
+    analyseImage(capturedB64, capturedMediaType);
+  });
 
   // ─── MANUAL ENTRY ─────────────────────────────────────────────────────────
-  async function handleManual() {
+  const handleManual = async () => {
     const val = document.getElementById('manual-input').value.trim();
-    if (!val) {
-      setError('Please enter a product name.');
-      return;
-    }
+    if (!val) { setError('Please enter a product name.'); return; }
     clearError();
-    stopScanner();
     showScreen('screen-loading');
-    await analyseProduct(val);
+    await analyseText(val);
+  };
+  document.getElementById('manual-btn').addEventListener('click', handleManual);
+  document.getElementById('manual-input').addEventListener('keydown', e => { if (e.key === 'Enter') handleManual(); });
+
+  // ─── BACK ─────────────────────────────────────────────────────────────────
+  document.getElementById('back-btn').addEventListener('click', () => {
+    capturedB64 = null;
+    preview.src = ''; preview.classList.remove('visible');
+    placeholder.classList.remove('hidden');
+    analyseBtn.classList.remove('visible');
+    photoInput.value = '';
+    document.getElementById('manual-input').value = '';
+    clearError();
+    showScreen('screen-scan');
+  });
+
+  // ─── PROMPT ───────────────────────────────────────────────────────────────
+  const SKIN_TYPES    = ['all skin types','oily','dry','combination','normal'];
+  const SKIN_CONCERNS = ['acne','anti-aging','anti-bacterial','barrier repair','blackheads',
+                         'brightening','dark spot','deep cleansing','dehydration',
+                         'dullness','hyperpigmentation','soothing','visible pores'];
+
+  const buildPrompt = hint => `${hint ? `The product is: ${hint}.` : 'Identify the product from the image.'}
+
+Return ONLY a JSON object — no markdown, no preamble:
+{
+  "found": true/false,
+  "brand": "...",
+  "productName": "...",
+  "productType": "Serum / Toner / Moisturiser / Cleanser / Sunscreen / Eye Cream / Mask / Exfoliant / Essence / etc.",
+  "heroIngredients": [
+    { "name": "...", "concentration": "e.g. 0.1% or not disclosed", "benefit": "one sentence" }
+  ],
+  "warning": "Sensitive skin risks + photosensitivity if applicable. For pregnancy/breastfeeding risks end with: 'We are not medical professionals — please consult your doctor or pharmacist before use.'",
+  "productPurpose": "1–2 sentences",
+  "suitableSkinTypes": ["values only from: ${SKIN_TYPES.join(', ')}"],
+  "skinConcerns": ["EXACTLY 3 values from: ${SKIN_CONCERNS.join(', ')} — ordered by hero ingredient concentration descending"],
+  "routineIntegration": "AM/PM, step, frequency, what before and after",
+  "goodPairings": ["3–5 short phrases"],
+  "avoidPairings": ["3–5 short phrases"],
+  "maxBenefit": "3–5 practical tips"
+}
+Rules: heroIngredients exactly 5 (or fewer if fewer actives). skinConcerns exactly 3. If unidentifiable set found:false.`;
+
+  // ─── API CALLS ────────────────────────────────────────────────────────────
+  const callWorker = body => fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  async function analyseImage(b64, mediaType) {
+    try {
+      const res = await callWorker({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: 'You are a world-class Korean skincare expert. Return ONLY valid JSON — no markdown, no preamble.',
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text: buildPrompt('') }
+        ]}],
+      });
+      if (!res.ok) throw new Error(res.status);
+      parseAndRender(await res.json());
+    } catch (e) {
+      console.error(e);
+      showScreen('screen-scan');
+      setError('Could not analyse photo. Try again or type the product name.');
+    }
   }
 
-  // ─── CLAUDE API CALL ──────────────────────────────────────────────────────
-  async function analyseProduct(query) {
-    const SKIN_TYPES    = ['all skin types','oily','dry','combination','normal'];
-    const SKIN_CONCERNS = ['acne','anti-aging','anti-bacterial','barrier repair','blackheads',
-                           'brightening','dark spot','deep cleansing','dehydration',
-                           'dullness','hyperpigmentation','soothing','visible pores'];
-
-    const systemPrompt = `You are a world-class Korean skincare ingredient expert. 
-When given a product name or barcode, you identify the product and return a JSON analysis. 
-You always return ONLY valid JSON — no markdown fences, no preamble, no commentary. Nothing else.`;
-
-    const userPrompt = `Identify this skincare product and return a detailed analysis:
-
-Product: ${query}
-
-Return ONLY a single JSON object with this exact structure:
-{
-  "found": true or false,
-  "brand": "brand name",
-  "productName": "product name",
-  "productType": "e.g. Serum, Toner, Moisturiser, Essence, Cleanser, Sunscreen, Eye Cream, Mask, Exfoliant",
-  "heroIngredients": [
-    {
-      "name": "ingredient name",
-      "concentration": "e.g. 0.1% or 'not disclosed'",
-      "benefit": "concise 1-sentence benefit"
-    }
-  ],
-  "warning": "Describe any sensitive skin risks (irritation, purging, photosensitivity, etc). Also include a pregnancy/breastfeeding note if relevant, with this exact disclaimer appended: 'We are not medical professionals — please consult your doctor or pharmacist before use.'",
-  "productPurpose": "1–2 sentences describing what this product does",
-  "suitableSkinTypes": ["choose one or more from exactly: all skin types, oily, dry, combination, normal"],
-  "skinConcerns": ["choose EXACTLY 3 from: acne, anti-aging, anti-bacterial, barrier repair, blackheads, brightening, dark spot, deep cleansing, dehydration, dullness, hyperpigmentation, soothing, visible pores — ordered by relevance to hero ingredient concentrations, highest concentration first"],
-  "routineIntegration": "Step-by-step guidance: when in routine (AM/PM), what comes before and after, frequency",
-  "goodPairings": ["ingredient or product type — 3 to 5 items, each a short phrase"],
-  "avoidPairings": ["ingredient or product type — 3 to 5 items, each a short phrase"],
-  "maxBenefit": "3–5 practical tips to get the most benefit from this product"
-}
-
-Skin type values must be from the list: ${SKIN_TYPES.join(', ')}.
-Skin concern values must be from the list: ${SKIN_CONCERNS.join(', ')}.
-Hero ingredients: include exactly 5, or fewer if the product genuinely has fewer notable actives.
-If the product cannot be identified, set "found": false and populate all other fields with "Unknown" or empty arrays.`;
-
+  async function analyseText(name) {
     try {
-      const response = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
-        }),
+      const res = await callWorker({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: 'You are a world-class Korean skincare expert. Return ONLY valid JSON — no markdown, no preamble.',
+        messages: [{ role: 'user', content: buildPrompt(name) }],
       });
-
-      if (!response.ok) throw new Error(`Worker returned ${response.status}`);
-
-      const data = await response.json();
-      const raw = data.content[0].text;
-      // Strip any accidental markdown fences
-      const clean = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/,'').trim();
-      const product = JSON.parse(clean);
-      renderResult(product);
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(res.status);
+      parseAndRender(await res.json());
+    } catch (e) {
+      console.error(e);
       showScreen('screen-scan');
       setError('Could not analyse product. Please try again.');
-      initScanner();
     }
   }
 
-  // ─── RENDER RESULT ────────────────────────────────────────────────────────
+  // ─── RENDER ───────────────────────────────────────────────────────────────
+  function parseAndRender(data) {
+    try {
+      const raw = data.content[0].text;
+      const clean = raw.replace(/^```(?:json)?\n?/i,'').replace(/\n?```$/,'').trim();
+      renderResult(JSON.parse(clean));
+    } catch(e) {
+      console.error(e);
+      showScreen('screen-scan');
+      setError('Unexpected response. Please try again.');
+    }
+  }
+
   function renderResult(p) {
-    // Header
-    document.getElementById('r-type').textContent    = p.productType || 'Product';
-    document.getElementById('r-brand').textContent   = (p.brand || '').toUpperCase();
-    document.getElementById('r-name').textContent    = p.productName || 'Unknown Product';
-    document.getElementById('r-purpose').textContent = p.productPurpose || '—';
-    document.getElementById('r-routine').textContent = p.routineIntegration || '—';
-    document.getElementById('r-benefit').textContent = p.maxBenefit || '—';
+    setText('r-type',    p.productType    || 'Product');
+    setText('r-brand',  (p.brand         || '').toUpperCase());
+    setText('r-name',    p.productName   || 'Unknown Product');
+    setText('r-purpose', p.productPurpose|| '—');
+    setText('r-routine', p.routineIntegration || '—');
+    setText('r-benefit', p.maxBenefit    || '—');
 
-    // Warning
-    const warnEl = document.getElementById('r-warning');
-    warnEl.innerHTML = (p.warning || '—')
-      .replace(/We are not medical professionals[^.]*/,
-        '<strong>⚠ We are not medical professionals — please consult your doctor or pharmacist before use.</strong>');
+    document.getElementById('r-warning').innerHTML = (p.warning || '—')
+      .replace('We are not medical professionals — please consult your doctor or pharmacist before use.',
+        '<strong>We are not medical professionals — please consult your doctor or pharmacist before use.</strong>');
 
-    // Hero Ingredients
     const ingList = document.getElementById('r-ingredients');
     ingList.innerHTML = '';
-    (p.heroIngredients || []).forEach(ing => {
-      const card = document.createElement('div');
-      card.className = 'ingredient-card';
-      card.innerHTML = `
-        <span class="ingredient-name">${ing.name}</span>
-        <span class="ingredient-conc">${ing.concentration || ''}</span>
-        <span class="ingredient-benefit">${ing.benefit || ''}</span>`;
-      ingList.appendChild(card);
+    (p.heroIngredients || []).forEach(i => {
+      const d = document.createElement('div'); d.className = 'ingredient-card';
+      d.innerHTML = `<span class="ingredient-name">${i.name}</span><span class="ingredient-conc">${i.concentration||''}</span><span class="ingredient-benefit">${i.benefit||''}</span>`;
+      ingList.appendChild(d);
     });
 
-    // Skin types
-    const stEl = document.getElementById('r-skin-types');
-    stEl.innerHTML = '';
-    (p.suitableSkinTypes || []).forEach(t => {
-      const tag = document.createElement('span');
-      tag.className = 'tag tag-skin';
-      tag.textContent = capitalize(t);
-      stEl.appendChild(tag);
-    });
+    renderTags('r-skin-types', p.suitableSkinTypes || [], 'tag-skin');
+    renderTags('r-concerns',  (p.skinConcerns || []).slice(0,3), 'tag-concern');
 
-    // Concerns
-    const scEl = document.getElementById('r-concerns');
-    scEl.innerHTML = '';
-    (p.skinConcerns || []).slice(0, 3).forEach(c => {
-      const tag = document.createElement('span');
-      tag.className = 'tag tag-concern';
-      tag.textContent = capitalize(c);
-      scEl.appendChild(tag);
-    });
+    renderPairings('r-good-pairings',  p.goodPairings  || [], 'bullet-good');
+    renderPairings('r-avoid-pairings', p.avoidPairings || [], 'bullet-avoid');
 
-    // Good pairings
-    const gpEl = document.getElementById('r-good-pairings');
-    gpEl.innerHTML = '';
-    (p.goodPairings || []).forEach(item => {
-      const d = document.createElement('div');
-      d.className = 'pairing-item';
-      d.innerHTML = `<span class="bullet bullet-good"></span><span>${item}</span>`;
-      gpEl.appendChild(d);
-    });
-
-    // Avoid pairings
-    const apEl = document.getElementById('r-avoid-pairings');
-    apEl.innerHTML = '';
-    (p.avoidPairings || []).forEach(item => {
-      const d = document.createElement('div');
-      d.className = 'pairing-item';
-      d.innerHTML = `<span class="bullet bullet-avoid"></span><span>${item}</span>`;
-      apEl.appendChild(d);
-    });
-
-    // Scroll result to top
     document.getElementById('screen-result').scrollTop = 0;
     showScreen('screen-result');
   }
 
-  // ─── HELPERS ──────────────────────────────────────────────────────────────
-  function setError(msg) {
-    document.getElementById('scan-error').textContent = msg;
-  }
-  function clearError() {
-    document.getElementById('scan-error').textContent = '';
-  }
-  function capitalize(str) {
-    return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+  const setText = (id, val) => document.getElementById(id).textContent = val;
+
+  function renderTags(id, items, cls) {
+    const el = document.getElementById(id); el.innerHTML = '';
+    items.forEach((t,i) => {
+      const s = document.createElement('span');
+      s.className = `tag ${cls}${cls==='tag-concern'&&i===0?' ':' '}`.trim();
+      if (cls === 'tag-concern') s.className = i === 0 ? 'tag tag-concern' : 'tag tag-concern';
+      s.className = `tag ${cls}`;
+      s.textContent = cap(t);
+      el.appendChild(s);
+    });
   }
 
-  // ─── EVENTS ───────────────────────────────────────────────────────────────
-  document.getElementById('manual-btn').addEventListener('click', handleManual);
-  document.getElementById('manual-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') handleManual();
-  });
-
-  document.getElementById('back-btn').addEventListener('click', () => {
-    showScreen('screen-scan');
-    document.getElementById('manual-input').value = '';
-    clearError();
-    initScanner();
-  });
-
-  // ─── BOOT ─────────────────────────────────────────────────────────────────
-  if (typeof Html5Qrcode === 'undefined') {
-    setError('Camera library failed to load. Please use manual entry below.');
-  } else {
-    initScanner();
+  function renderPairings(id, items, bulletCls) {
+    const el = document.getElementById(id); el.innerHTML = '';
+    items.forEach(item => {
+      el.innerHTML += `<div class="pairing-item"><span class="bullet ${bulletCls}"></span><span>${item}</span></div>`;
+    });
   }
+
+  const setError   = msg => document.getElementById('scan-error').textContent = msg;
+  const clearError = ()  => document.getElementById('scan-error').textContent = '';
+  const cap        = s   => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 </script>
 </body>
 </html>
